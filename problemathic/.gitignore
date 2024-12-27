@@ -1,0 +1,28 @@
+# Compiled output
+/target/
+
+# Rust/Cargo-specific files
+**/*.rs.bk
+**/*.rs.swp
+Cargo.lock
+*.rs.bk
+
+# IDEs and editors
+.idea/
+.vscode/
+*.swp
+*.swo
+*.log
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# Debugging or temporary files
+*.tmp
+*.temp
+*.bak
+*.old
+
+# Other backups or generated files
+*.log
