@@ -1,36 +1,43 @@
 use std::collections::{HashMap, HashSet};
 use std::env;
 use num_bigint::BigUint;
-use num_traits::{Zero, ToPrimitive}; // Import ToPrimitive for `to_usize`
+use num_traits::{Zero, ToPrimitive};
 
+/// Validates if the base is within the allowable range for the given charset.
 fn validate_base(base: usize, charset: &str) -> bool {
     (2..=charset.len()).contains(&base)
 }
 
+/// Validates if the input string contains only valid characters for the given base.
 fn validate_input(input_string: &str, base: usize, charset: &str) -> bool {
     let valid_chars: HashSet<char> = charset.chars().take(base).collect();
     input_string.chars().all(|c| valid_chars.contains(&c))
 }
 
+/// Converts a string from one base to another using the given charset.
 fn convert_base(input_string: &str, base_from: usize, base_to: usize, charset: &str) -> String {
+    // Mapping characters to their values and vice versa
     let char_to_value: HashMap<char, usize> = charset.chars().enumerate().map(|(i, c)| (c, i)).collect();
     let value_to_char: Vec<char> = charset.chars().collect();
 
-    // Convert input to decimal (BigUint)
+    // Convert the input string to a decimal value
     let mut decimal_value = BigUint::zero();
     let base_from_big = BigUint::from(base_from);
 
     for c in input_string.chars() {
-        decimal_value = decimal_value * &base_from_big + BigUint::from(char_to_value[&c]);
+        if let Some(&value) = char_to_value.get(&c) {
+            decimal_value = decimal_value * &base_from_big + BigUint::from(value);
+        }
     }
 
-    // Convert decimal to target base (BigUint)
+    // Handle zero case explicitly
     if decimal_value.is_zero() {
         return value_to_char[0].to_string();
     }
 
-    let mut result = String::new();
+    // Convert decimal value to the target base
     let base_to_big = BigUint::from(base_to);
+    let mut result = Vec::new();
 
     while !decimal_value.is_zero() {
         let remainder = (&decimal_value % &base_to_big)
@@ -40,16 +47,18 @@ fn convert_base(input_string: &str, base_from: usize, base_to: usize, charset: &
         decimal_value /= &base_to_big;
     }
 
-    result.chars().rev().collect()
+    result.into_iter().rev().collect()
 }
 
 fn main() {
-    const CHARSET: &str = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz !\"#$%&'()*+,-./:;<=>?@[\\]^_{|}~";
+    // The character set supports up to base 95
+    const CHARSET: &str = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz !\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~";
 
+    // Collect command-line arguments
     let args: Vec<String> = env::args().collect();
 
-    if args.len() < 4 {
-        eprintln!("Usage: nsco <input_string> <base_from> <base_to>");
+    if args.len() != 4 {
+        eprintln!("Usage: problemathic <input_string> <base_from> <base_to>");
         return;
     }
 
@@ -57,26 +66,29 @@ fn main() {
     let base_from = args[2].parse::<usize>();
     let base_to = args[3].parse::<usize>();
 
+    // Parse and validate the bases
     match (base_from, base_to) {
-        (Ok(base_from), Ok(base_to)) if validate_base(base_from, CHARSET) && validate_base(base_to, CHARSET) => {
-            if validate_input(input_string, base_from, CHARSET) {
-                println!(
-                    "Input string: {}, Base from: {}, Base to: {}, Result: {}",
-                    input_string,
-                    base_from,
-                    base_to,
-                    convert_base(input_string, base_from, base_to, CHARSET)
-                );
+        (Ok(base_from), Ok(base_to)) => {
+            if validate_base(base_from, CHARSET) && validate_base(base_to, CHARSET) {
+                if validate_input(input_string, base_from, CHARSET) {
+                    let result = convert_base(input_string, base_from, base_to, CHARSET);
+                    println!(
+                        "Input string: {}, Base from: {}, Base to: {}, Result: {}",
+                        input_string, base_from, base_to, result
+                    );
+                } else {
+                    eprintln!(
+                        "Error: The string '{}' contains invalid characters for base {}.",
+                        input_string, base_from
+                    );
+                }
             } else {
                 eprintln!(
-                    "Error: The string '{}' contains invalid characters for base {}.",
-                    input_string, base_from
+                    "Error: Bases must be between 2 and the length of the charset ({}).",
+                    CHARSET.len()
                 );
             }
         }
-        _ => eprintln!(
-            "Error: Bases must be integers between 2 and the length of the charset ({}).",
-            CHARSET.len()
-        ),
+        _ => eprintln!("Error: Invalid base values. Ensure both bases are integers."),
     }
 }
