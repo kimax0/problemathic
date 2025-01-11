@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use std::env;
+use std::fs;
 use num_bigint::BigUint;
 use num_traits::{Zero, ToPrimitive};
 
@@ -57,30 +58,39 @@ fn main() {
     // Collect command-line arguments
     let args: Vec<String> = env::args().collect();
 
-    if args.len() != 4 {
-        eprintln!("Usage: problemathic <input_string> <base_from> <base_to>");
+    if args.len() != 5 {
+        eprintln!("Usage: problemathic <input_file> <output_file> <base_from> <base_to>");
         return;
     }
 
-    let input_string = &args[1];
-    let base_from = args[2].parse::<usize>();
-    let base_to = args[3].parse::<usize>();
+    let input_file = &args[1];
+    let output_file = &args[2];
+    let base_from = args[3].parse::<usize>();
+    let base_to = args[4].parse::<usize>();
 
     // Parse and validate the bases
     match (base_from, base_to) {
         (Ok(base_from), Ok(base_to)) => {
             if validate_base(base_from, CHARSET) && validate_base(base_to, CHARSET) {
-                if validate_input(input_string, base_from, CHARSET) {
-                    let result = convert_base(input_string, base_from, base_to, CHARSET);
-                    println!(
-                        "Input string: {}, Base from: {}, Base to: {}, Result: {}",
-                        input_string, base_from, base_to, result
-                    );
-                } else {
-                    eprintln!(
-                        "Error: The string '{}' contains invalid characters for base {}.",
-                        input_string, base_from
-                    );
+                match fs::read_to_string(input_file) {
+                    Ok(input_string) => {
+                        let input_string = input_string.trim(); // Remove any extra whitespace or newline
+
+                        if validate_input(input_string, base_from, CHARSET) {
+                            let result = convert_base(input_string, base_from, base_to, CHARSET);
+                            if let Err(e) = fs::write(output_file, result) {
+                                eprintln!("Error writing to output file: {}", e);
+                            }
+                        } else {
+                            eprintln!(
+                                "Error: The string '{}' contains invalid characters for base {}.",
+                                input_string, base_from
+                            );
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("Error reading input file: {}", e);
+                    }
                 }
             } else {
                 eprintln!(
