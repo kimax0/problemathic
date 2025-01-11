@@ -74,7 +74,7 @@ fn main() {
             if validate_base(base_from, CHARSET) && validate_base(base_to, CHARSET) {
                 match fs::read_to_string(input_file) {
                     Ok(input_string) => {
-                        let input_string = input_string.trim(); // Remove any extra whitespace or newline
+                        let input_string = &input_string;
 
                         if validate_input(input_string, base_from, CHARSET) {
                             let result = convert_base(input_string, base_from, base_to, CHARSET);
