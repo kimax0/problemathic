@@ -85,10 +85,11 @@ fn main() {
         }
     };
 
-    let base_from = CHARSET.len();
+    let base_to = CHARSET.len();
     let bases: Vec<usize> = password_content
         .split_whitespace()
         .filter_map(|b| b.parse::<usize>().ok())
+        .rev() // Reverse the order of the bases for decryption
         .collect();
 
     // Validate bases
@@ -98,17 +99,17 @@ fn main() {
     }
 
     // Validate input string
-    if !validate_input(&input_string, base_from, CHARSET) {
+    if !validate_input(&input_string, bases[0], CHARSET) {
         eprintln!(
             "Error: The string '{}' contains invalid characters for base {}.",
-            input_string, base_from
+            input_string, bases[0]
         );
         return;
     }
 
-    // Perform sequential conversions
+    // Perform sequential conversions in reverse order
     let mut current_string = input_string;
-    for &base_to in &bases {
+    for &base_from in &bases {
         current_string = convert_base(&current_string, base_from, base_to, CHARSET);
     }
 
