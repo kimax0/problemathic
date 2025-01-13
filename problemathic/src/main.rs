@@ -58,47 +58,62 @@ fn main() {
     // Collect command-line arguments
     let args: Vec<String> = env::args().collect();
 
-    if args.len() != 5 {
-        eprintln!("Usage: problemathic <input_file> <output_file> <base_from> <base_to>");
+    if args.len() != 4 {
+        eprintln!("Usage: problemathic <input_file> <output_file> <password_file>");
         return;
     }
 
     let input_file = &args[1];
     let output_file = &args[2];
-    let base_from = args[3].parse::<usize>();
-    let base_to = args[4].parse::<usize>();
+    let password_file = &args[3];
 
-    // Parse and validate the bases
-    match (base_from, base_to) {
-        (Ok(base_from), Ok(base_to)) => {
-            if validate_base(base_from, CHARSET) && validate_base(base_to, CHARSET) {
-                match fs::read_to_string(input_file) {
-                    Ok(input_string) => {
-                        let input_string = &input_string;
-
-                        if validate_input(input_string, base_from, CHARSET) {
-                            let result = convert_base(input_string, base_from, base_to, CHARSET);
-                            if let Err(e) = fs::write(output_file, result) {
-                                eprintln!("Error writing to output file: {}", e);
-                            }
-                        } else {
-                            eprintln!(
-                                "Error: The string '{}' contains invalid characters for base {}.",
-                                input_string, base_from
-                            );
-                        }
-                    }
-                    Err(e) => {
-                        eprintln!("Error reading input file: {}", e);
-                    }
-                }
-            } else {
-                eprintln!(
-                    "Error: Bases must be between 2 and the length of the charset ({}).",
-                    CHARSET.len()
-                );
-            }
+    // Read the input file
+    let input_string = match fs::read_to_string(input_file) {
+        Ok(content) => content.trim().to_string(),
+        Err(e) => {
+            eprintln!("Error reading input file: {}", e);
+            return;
         }
-        _ => eprintln!("Error: Invalid base values. Ensure both bases are integers."),
+    };
+
+    // Read the password file and parse bases
+    let password_content = match fs::read_to_string(password_file) {
+        Ok(content) => content.trim().to_string(),
+        Err(e) => {
+            eprintln!("Error reading password file: {}", e);
+            return;
+        }
+    };
+
+    let base_from = CHARSET.len();
+    let bases: Vec<usize> = password_content
+        .split_whitespace()
+        .filter_map(|b| b.parse::<usize>().ok())
+        .collect();
+
+    // Validate bases
+    if bases.iter().any(|&base| !validate_base(base, CHARSET)) {
+        eprintln!("Error: Password file contains invalid bases.");
+        return;
+    }
+
+    // Validate input string
+    if !validate_input(&input_string, base_from, CHARSET) {
+        eprintln!(
+            "Error: The string '{}' contains invalid characters for base {}.",
+            input_string, base_from
+        );
+        return;
+    }
+
+    // Perform sequential conversions
+    let mut current_string = input_string;
+    for &base_to in &bases {
+        current_string = convert_base(&current_string, base_from, base_to, CHARSET);
+    }
+
+    // Write the final result to the output file
+    if let Err(e) = fs::write(output_file, current_string) {
+        eprintln!("Error writing to output file: {}", e);
     }
 }
