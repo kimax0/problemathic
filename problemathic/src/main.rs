@@ -1,8 +1,8 @@
 use std::collections::{HashMap, HashSet};
-use std::env;
 use std::fs;
 use num_bigint::BigUint;
 use num_traits::{Zero, ToPrimitive};
+use clap::{Arg, Command};
 
 /// Validates if the base is within the allowable range for the given charset.
 fn validate_base(base: usize, charset: &str) -> bool {
@@ -17,11 +17,9 @@ fn validate_input(input_string: &str, base: usize, charset: &str) -> bool {
 
 /// Converts a string from one base to another using the given charset.
 fn convert_base(input_string: &str, base_from: usize, base_to: usize, charset: &str) -> String {
-    // Mapping characters to their values and vice versa
     let char_to_value: HashMap<char, usize> = charset.chars().enumerate().map(|(i, c)| (c, i)).collect();
     let value_to_char: Vec<char> = charset.chars().collect();
 
-    // Convert the input string to a decimal value
     let mut decimal_value = BigUint::zero();
     let base_from_big = BigUint::from(base_from);
 
@@ -31,12 +29,10 @@ fn convert_base(input_string: &str, base_from: usize, base_to: usize, charset: &
         }
     }
 
-    // Handle zero case explicitly
     if decimal_value.is_zero() {
         return value_to_char[0].to_string();
     }
 
-    // Convert decimal value to the target base
     let base_to_big = BigUint::from(base_to);
     let mut result = Vec::new();
 
@@ -51,23 +47,9 @@ fn convert_base(input_string: &str, base_from: usize, base_to: usize, charset: &
     result.into_iter().rev().collect()
 }
 
-fn main() {
-    // The character set supports up to base 95
+fn process_file(input_file: &str, output_file: &str, password_file: &str, encrypt: bool) {
     const CHARSET: &str = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz !\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~";
 
-    // Collect command-line arguments
-    let args: Vec<String> = env::args().collect();
-
-    if args.len() != 4 {
-        eprintln!("Usage: problemathic <input_file> <output_file> <password_file>");
-        return;
-    }
-
-    let input_file = &args[1];
-    let output_file = &args[2];
-    let password_file = &args[3];
-
-    // Read the input file
     let input_string = match fs::read_to_string(input_file) {
         Ok(content) => content.trim().to_string(),
         Err(e) => {
@@ -76,7 +58,6 @@ fn main() {
         }
     };
 
-    // Read the password file and parse bases
     let password_content = match fs::read_to_string(password_file) {
         Ok(content) => content.trim().to_string(),
         Err(e) => {
@@ -85,36 +66,76 @@ fn main() {
         }
     };
 
-    let base_to = CHARSET.len();
     let bases: Vec<usize> = password_content
         .split_whitespace()
         .filter_map(|b| b.parse::<usize>().ok())
-        .rev() // Reverse the order of the bases for decryption
         .collect();
 
-    // Validate bases
+    let bases = if encrypt { bases } else { bases.into_iter().rev().collect::<Vec<_>>() };
+
     if bases.iter().any(|&base| !validate_base(base, CHARSET)) {
         eprintln!("Error: Password file contains invalid bases.");
         return;
     }
 
-    // Validate input string
-    if !validate_input(&input_string, bases[0], CHARSET) {
+    if !validate_input(&input_string, CHARSET.len(), CHARSET) {
         eprintln!(
-            "Error: The string '{}' contains invalid characters for base {}.",
-            input_string, bases[0]
+            "Error: The string '{}' contains invalid characters for the initial base.",
+            input_string
         );
         return;
     }
 
-    // Perform sequential conversions in reverse order
     let mut current_string = input_string;
-    for &base_from in &bases {
-        current_string = convert_base(&current_string, base_from, base_to, CHARSET);
+    for &base in bases.iter() {
+        current_string = if encrypt {
+            convert_base(&current_string, CHARSET.len(), base, CHARSET)
+        } else {
+            convert_base(&current_string, base, CHARSET.len(), CHARSET)
+        };
     }
 
-    // Write the final result to the output file
     if let Err(e) = fs::write(output_file, current_string) {
         eprintln!("Error writing to output file: {}", e);
+    }
+}
+
+fn main() {
+    let matches = Command::new("Problemathic")
+        .version("1.0")
+        .author("Mateja Nikolić matejanikolic@proton.me")
+        .about("Encrypts or decrypts files using a base conversion method")
+        .subcommand_required(true)
+        .arg_required_else_help(true)
+        .subcommand(
+            Command::new("encrypt")
+                .about("Encrypts the input file")
+                .arg(Arg::new("INPUT").help("Input file").required(true))
+                .arg(Arg::new("OUTPUT").help("Output file").required(true))
+                .arg(Arg::new("PASSWORD").help("Password file").required(true)),
+        )
+        .subcommand(
+            Command::new("decrypt")
+                .about("Decrypts the input file")
+                .arg(Arg::new("INPUT").help("Input file").required(true))
+                .arg(Arg::new("OUTPUT").help("Output file").required(true))
+                .arg(Arg::new("PASSWORD").help("Password file").required(true)),
+        )
+        .get_matches();
+
+    match matches.subcommand() {
+        Some(("encrypt", sub_matches)) => {
+            let input = sub_matches.get_one::<String>("INPUT").unwrap();
+            let output = sub_matches.get_one::<String>("OUTPUT").unwrap();
+            let password = sub_matches.get_one::<String>("PASSWORD").unwrap();
+            process_file(input, output, password, true);
+        }
+        Some(("decrypt", sub_matches)) => {
+            let input = sub_matches.get_one::<String>("INPUT").unwrap();
+            let output = sub_matches.get_one::<String>("OUTPUT").unwrap();
+            let password = sub_matches.get_one::<String>("PASSWORD").unwrap();
+            process_file(input, output, password, false);
+        }
+        _ => unreachable!(),
     }
 }
