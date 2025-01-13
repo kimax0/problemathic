@@ -27,6 +27,7 @@ Thumbs.db
 # Other backups or generated files
 *.log
 
-# Input and output files
+# Input, output and password files
 input.txt
 output.txt
+password.txt
